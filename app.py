@@ -6,27 +6,32 @@ import pickle
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
 # -----------------------------------------------------------
-# CUSTOM CSS AREA (YOU CAN EDIT THIS FREELY)
+# BLACK THEME — CUSTOM CSS (YOU CAN EDIT COLORS HERE)
 # -----------------------------------------------------------
 
 def load_css():
     custom_css = """
-    /* ======== CUSTOM CSS ========= */
+    /* ===== DARK THEME ===== */
 
-    /* Main App Background */
     .stApp {
-        background-color: #f5f7fa !important;
+        background-color: #0e0e0e !important;
+        color: #f1f1f1 !important;
     }
 
     /* Sidebar */
-    section[data-testid="stSidebar"]{
-        background-color: #ffffff !important;
-        padding-top: 20px !important;
+    section[data-testid="stSidebar"] {
+        background-color: #1a1a1a !important;
+        color: #ffffff !important;
+    }
+
+    /* Headings */
+    h1, h2, h3, h4, h5, h6, label {
+        color: #ffffff !important;
     }
 
     /* Buttons */
     .stButton > button {
-        background-color: #4CAF50 !important;
+        background-color: #444444 !important;
         color: white !important;
         padding: 8px 18px !important;
         border-radius: 8px !important;
@@ -35,12 +40,20 @@ def load_css():
     }
 
     .stButton > button:hover {
-        background-color: #45a049 !important;
+        background-color: #666666 !important;
     }
 
-    /* Inputs rounded */
+    /* Input Fields */
     input, select, textarea {
+        background-color: #222 !important;
+        color: white !important;
         border-radius: 6px !important;
+        border: 1px solid #444 !important;
+    }
+
+    /* Dataframe background */
+    .dataframe {
+        color: white !important;
     }
     """
     st.markdown(f"<style>{custom_css}</style>", unsafe_allow_html=True)
@@ -48,7 +61,7 @@ def load_css():
 load_css()
 
 # -----------------------------------------------------------
-# CLEANING FUNCTION (Fix CSV issues: TotalCharges)
+# CLEANING FUNCTION (Fix CSV TotalCharges issues)
 # -----------------------------------------------------------
 
 def clean_dataframe(df):
@@ -66,7 +79,7 @@ def clean_dataframe(df):
     return df
 
 # -----------------------------------------------------------
-# LOAD MODEL / ENCODERS (UPLOAD OR LOCAL)
+# LOAD MODEL / ENCODERS
 # -----------------------------------------------------------
 
 st.sidebar.title("⚙️ Settings")
@@ -90,7 +103,7 @@ else:
         with open("encoders.pk1", "rb") as f:
             encoders = pickle.load(f)
     except:
-        st.warning("⚠ Model/Encoders not found. Upload them in the sidebar.")
+        st.warning("⚠ Model/Encoders not found. Upload in sidebar.")
 
 if model_data:
     loaded_model = model_data["model"]
@@ -136,7 +149,7 @@ if page == "🔮 Single Prediction":
         StreamingMovies = st.selectbox("StreamingMovies", ["Yes", "No", "No internet service"])
         Contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
         PaperlessBilling = st.selectbox("Paperless Billing", ["Yes", "No"])
-        PaymentMethod = st.selectbox("Payment", [
+        PaymentMethod = st.selectbox("Payment Method", [
             "Electronic check", "Mailed check",
             "Bank transfer (automatic)", "Credit card (automatic)"
         ])
@@ -176,16 +189,16 @@ if page == "🔮 Single Prediction":
             st.info(f"Probability: {prob:.4f}")
 
 # -----------------------------------------------------------
-# 📄 BATCH PREDICTION
+# 📄 CSV BATCH PREDICTION
 # -----------------------------------------------------------
 
 elif page == "📄 Batch Prediction (CSV)":
 
-    st.header("📄 Batch Prediction")
+    st.header("📄 Upload CSV for Batch Prediction")
 
     uploaded_csv = st.file_uploader("Upload CSV File", type=["csv"])
 
-    if uploaded_csv is not None:
+    if uploaded_csv:
         df = pd.read_csv(uploaded_csv)
         st.write("Preview:", df.head())
 
@@ -205,7 +218,7 @@ elif page == "📄 Batch Prediction (CSV)":
             df["Churn_Pred"] = preds
             df["Churn_Prob"] = probs
 
-            st.success("Prediction completed!")
+            st.success("Batch prediction completed!")
             st.dataframe(df)
 
             st.download_button(
@@ -222,12 +235,13 @@ elif page == "📄 Batch Prediction (CSV)":
 else:
     st.header("ℹ About This App")
     st.write("""
-    This ML app predicts customer churn using a trained Random Forest classifier.
+    This ML app predicts customer churn using a trained Random Forest model.
 
     Features:
     - Single Prediction  
     - Batch CSV Prediction  
     - Upload your own model  
     - Customizable CSS  
+    - Dark Mode UI  
     """)
 
