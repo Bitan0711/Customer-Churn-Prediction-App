@@ -30,104 +30,117 @@ st.set_page_config(page_title="Customer Churn Predictor", layout="wide")
 # THEME + CSS SYSTEM
 # -----------------------------------------------------------
 
-def apply_css(light_mode=True):
-    if light_mode:
+def set_theme(dark=False):
+    if dark:
         css = """
-        body {
-            background-color: #f5f7fa;
+        <style>
+        /* MAIN APP BACKGROUND */
+        .stApp {
+            background-color: #0f0f0f !important;
+            color: #f2f2f2 !important;
         }
 
-        .main {
-            background-color: #ffffff;
+        /* MAIN PAGE WRAPPER */
+        .stAppViewContainer, .stMain {
+            background-color: #0f0f0f !important;
         }
 
-        .stButton > button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 8px 18px;
+        /* SIDEBAR */
+        section[data-testid="stSidebar"]{
+            background-color: #1a1a1a !important;
+        }
+
+        /* HEADERS */
+        h1, h2, h3, h4, h5, h6, label, p, span, div {
+            color: #e6e6e6 !important;
+        }
+
+        /* BUTTONS */
+        .stButton>button {
+            background-color: #444 !important;
+            color: white !important;
             border-radius: 8px;
             border: none;
-            font-weight: 600;
+        }
+        .stButton>button:hover {
+            background-color: #666 !important;
         }
 
-        .stButton > button:hover {
-            background-color: #45a049;
-        }
-
-        /* Inputs rounded */
+        /* INPUT FIELDS */
         input, select, textarea {
+            background-color: #333 !important;
+            color: #fff !important;
             border-radius: 6px !important;
         }
 
-        /* Cards */
-        .card {
-            padding: 25px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.07);
-            margin-bottom: 20px;
+        /* REMOVE THE WHITE/BLACK BAR UNDER HEADER */
+        .block-container {
+            padding-top: 0 !important;
+            background-color: inherit !important;
         }
+        </style>
         """
     else:
         css = """
-        body { background-color: #111 !important; }
-        .main { background-color: #1a1a1a !important; }
-
-        label, h1, h2, h3, h4, p, span {
-            color: #ffffff !important;
+        <style>
+        .stApp {
+            background-color: #f5f7fa !important;
+            color: #333 !important;
         }
 
-        .stButton > button {
-            background-color: #444;
-            color: #fff;
-            padding: 8px 18px;
+        .stAppViewContainer, .stMain {
+            background-color: #f5f7fa !important;
+        }
+
+        section[data-testid="stSidebar"]{
+            background-color: #ffffff !important;
+        }
+
+        h1, h2, h3, h4, h5, h6, label {
+            color: #222 !important;
+        }
+
+        .stButton>button {
+            background-color: #4CAF50 !important;
+            color: white !important;
             border-radius: 8px;
             border: none;
-            font-weight: 600;
         }
-
-        .stButton > button:hover {
-            background-color: #666;
-        }
-
-        .card {
-            padding: 25px;
-            background: #222;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(255,255,255,0.05);
-            margin-bottom: 20px;
+        .stButton>button:hover {
+            background-color: #45a049 !important;
         }
 
         input, select, textarea {
-            background-color: #333 !important;
-            color: white !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
             border-radius: 6px !important;
         }
+
+        .block-container {
+            padding-top: 0 !important;
+            background-color: inherit !important;
+        }
+        </style>
         """
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------
-# THEME SWITCHER
-# -----------------------------------------------------------
-
+    st.markdown(css, unsafe_allow_html=True)
 with st.sidebar:
     st.title("⚙️ Settings")
-    theme = st.radio("Theme", ["Light Mode", "Dark Mode"])
-    light_theme = (theme == "Light Mode")
+    theme_choice = st.radio("Theme", ["Light", "Dark"])
 
-apply_css(light_theme)
+set_theme(dark=(theme_choice == "Dark"))
+
 
 # -----------------------------------------------------------
 # PROFESSIONAL DASHBOARD HEADER
 # -----------------------------------------------------------
 
 st.markdown("""
-    <div style='padding:20px; margin-bottom:20px;'>
-        <h1 style='font-weight:700;'>📊 Customer Churn Prediction Dashboard</h1>
-        <p style='font-size:17px;'>Predict if a customer will churn using machine learning models.</p>
-    </div>
+<div style='padding: 0 0 15px 0;'>
+    <h1 style='font-weight:700; margin-bottom: 0;'>📊 Customer Churn Prediction Dashboard</h1>
+    <p style='font-size:17px; margin-top:5px;'>Predict customer churn using ML.</p>
+</div>
 """, unsafe_allow_html=True)
+
 
 # -----------------------------------------------------------
 # LOAD MODEL / ENCODERS (local or uploaded)
