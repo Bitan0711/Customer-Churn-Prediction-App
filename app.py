@@ -3,6 +3,27 @@ import pandas as pd
 import numpy as np
 import pickle
 
+def clean_dataframe(df):
+    # Fix TotalCharges missing values
+    if "TotalCharges" in df.columns:
+        df["TotalCharges"] = df["TotalCharges"].replace(" ", "0.0")
+        df["TotalCharges"] = df["TotalCharges"].fillna("0.0")
+        df["TotalCharges"] = df["TotalCharges"].astype(float)
+
+    # Fix MonthlyCharges if needed
+    if "MonthlyCharges" in df.columns:
+        df["MonthlyCharges"] = pd.to_numeric(df["MonthlyCharges"], errors="coerce").fillna(0.0)
+
+    # Fix tenure if needed
+    if "tenure" in df.columns:
+        df["tenure"] = pd.to_numeric(df["tenure"], errors="coerce").fillna(0).astype(int)
+
+    return df
+#------ cleaning csv ------
+
+
+
+
 st.set_page_config(page_title="Customer Churn Predictor", layout="wide")
 
 # -----------------------------------------------------------
@@ -222,6 +243,8 @@ if page == "🔮 Single Prediction":
             }
 
             df = pd.DataFrame([row])
+            df = clean_dataframe(df)
+
 
             # Apply encoders
             for col, enc in encoders.items():
@@ -256,6 +279,8 @@ elif page == "📄 Batch Prediction (CSV)":
                 st.error("❌ Missing model/encoders.")
             else:
                 df_encoded = df.copy()
+                df_encoded = clean_dataframe(df_encoded)
+
 
                 for col, encoder in encoders.items():
                     if col in df_encoded.columns:
