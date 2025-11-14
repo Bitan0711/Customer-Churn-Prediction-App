@@ -300,6 +300,6 @@ else:
     - Automatic encoding  
     - Modern UI + Theme switching  
 
-    Created by **AetherEd Developer**.
+    Created by **Bitan**.
     """)
     st.markdown("</div>", unsafe_allow_html=True)
