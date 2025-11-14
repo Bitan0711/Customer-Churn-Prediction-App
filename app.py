@@ -10,17 +10,7 @@ st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 # -----------------------------------------------------------
 
 def load_css():
-    custom_css = """
-    /* REMOVE STREAMLIT HEADER ANCHOR ICONS */
-    a.anchor-link {
-        display: none !important;
-    }
-
-    /* New Streamlit versions use this class */
-    .stAnchor {
-        display: none !important;
-    }
-    
+    custom_css = """    
     /* ===== DARK THEME ===== */
 
     .stApp {
