@@ -61,6 +61,20 @@ else:
     loaded_model = model_data["model"]
     feature_names = model_data.get("features_name", None)
 
+# ---------- Theme Switcher ----------
+theme = st.selectbox("Choose Theme", ["Light", "Dark"])
+
+if theme == "Dark":
+    local_css("""
+    body { background-color: #111 !important; color: #fff !important; }
+    label, h1, h2, h3, h4 { color: #fff !important; }
+    .stButton > button { background-color: #444; color: #fff; }
+    """)
+else:
+    local_css("""
+    body { background-color: #f5f5f5!important; color: #000!important; }
+    """)
+
 # ---------- Input form for single prediction ----------
 st.header("Single customer prediction")
 
