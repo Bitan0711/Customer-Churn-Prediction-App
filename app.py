@@ -64,7 +64,7 @@ def clean_dataframe(df):
     return df
 
 # -----------------------------------------------------------
-# LOAD MODELS / ENCODERS (ML OR DL) — FIXED VERSION
+# MODEL LOADING (ML + DL FIXED)
 # -----------------------------------------------------------
 
 st.sidebar.title("⚙️ Settings")
@@ -75,7 +75,7 @@ uploaded_encoders = st.sidebar.file_uploader("Upload Encoders (.pk1/.pkl)", type
 def load_any_model(file):
     filename = file.name.lower()
 
-    # DL model (.h5)
+    # Deep learning model
     if filename.endswith(".h5"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
             tmp.write(file.read())
@@ -83,7 +83,7 @@ def load_any_model(file):
         model = load_model(tmp_path)
         return model, "DL"
 
-    # ML model (pickle)
+    # Machine-learning model
     else:
         return pickle.load(file), "ML"
 
@@ -93,14 +93,12 @@ model_type = None
 encoders = None
 feature_names = None
 
-# Prefer uploaded files
 if uploaded_model and uploaded_encoders:
     loaded_model, model_type = load_any_model(uploaded_model)
     encoders = pickle.load(uploaded_encoders)
 
 else:
     try:
-        # Load default ML model from repo
         with open("customer_churn_model.pk1", "rb") as f:
             model_data = pickle.load(f)
 
@@ -110,12 +108,12 @@ else:
 
         with open("encoders.pk1", "rb") as f:
             encoders = pickle.load(f)
-
     except:
-        st.warning("⚠ No default model/encoders found. Upload both in the sidebar to proceed.")
+        st.warning("⚠ No default model found. Upload model + encoders in sidebar.")
+
 
 # -----------------------------------------------------------
-# SIDEBAR NAVIGATION
+# NAVIGATION
 # -----------------------------------------------------------
 
 page = st.sidebar.radio(
@@ -124,7 +122,7 @@ page = st.sidebar.radio(
 )
 
 # -----------------------------------------------------------
-# UNIVERSAL PREDICTION HANDLER (ML + DL)
+# UNIVERSAL PREDICT FUNCTION
 # -----------------------------------------------------------
 
 def make_prediction(df):
@@ -179,7 +177,7 @@ if page == "🔮 Single Prediction":
 
     if st.button("Predict"):
         if not loaded_model or not encoders:
-            st.error("Model & Encoders must be uploaded.")
+            st.error("❌ Upload BOTH model + encoders!")
         else:
             row = {
                 'gender': gender, 'SeniorCitizen': SeniorCitizen,
@@ -197,8 +195,10 @@ if page == "🔮 Single Prediction":
             df = pd.DataFrame([row])
             df = clean_dataframe(df)
 
+            # SAFE ENCODING (NO ERRORS)
             for col, encoder in encoders.items():
-                df[col] = encoder.transform(df[col].astype(str))
+                if col in df.columns:
+                    df[col] = encoder.transform(df[col].astype(str))
 
             if model_type == "ML":
                 df = df[feature_names]
@@ -209,7 +209,7 @@ if page == "🔮 Single Prediction":
             st.info(f"Probability: {prob:.4f}")
 
 # -----------------------------------------------------------
-# 📄 CSV BATCH PREDICTION
+# 📄 BATCH PREDICTION
 # -----------------------------------------------------------
 
 elif page == "📄 Batch Prediction (CSV)":
@@ -226,6 +226,7 @@ elif page == "📄 Batch Prediction (CSV)":
 
             df_clean = clean_dataframe(df.copy())
 
+            # SAFE ENCODING LOOP
             for col, encoder in encoders.items():
                 if col in df_clean.columns:
                     df_clean[col] = encoder.transform(df_clean[col].astype(str))
@@ -233,9 +234,7 @@ elif page == "📄 Batch Prediction (CSV)":
             if model_type == "ML":
                 df_clean = df_clean[feature_names]
 
-            preds = []
-            probs = []
-
+            preds, probs = [], []
             for i in range(len(df_clean)):
                 pred, prob = make_prediction(df_clean.iloc[i:i+1])
                 preds.append(pred)
@@ -261,19 +260,18 @@ elif page == "📄 Batch Prediction (CSV)":
 else:
     st.header("ℹ About This App")
     st.write("""
-    This app predicts telecom customer churn using either:
+    This app predicts telecom customer churn using:
 
-    **Machine Learning models**
+    **Machine Learning models (pickle)**
     - Random Forest  
     - XGBoost  
 
-    **Deep Learning models**
-    - TensorFlow/Keras (.h5)
+    **Deep Learning models (.h5)**
+    - TensorFlow/Keras  
 
     Features:
-    ✔ Single Prediction  
-    ✔ Batch CSV Prediction  
-    ✔ Upload custom ML/DL model  
-    ✔ Automatic Encoding  
-    ✔ Dark UI Theme  
+    - Single Prediction  
+    - Batch Prediction  
+    - Upload Your Own Model + Encoders  
+    - Dark Mode UI  
     """)
