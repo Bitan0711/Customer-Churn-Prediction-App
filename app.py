@@ -2,58 +2,43 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+from tensorflow.keras.models import load_model
 
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
 # -----------------------------------------------------------
-# BLACK THEME — CUSTOM CSS (YOU CAN EDIT COLORS HERE)
+# DARK THEME CSS
 # -----------------------------------------------------------
 
 def load_css():
     custom_css = """    
-    /* ===== DARK THEME ===== */
-
     .stApp {
         background-color: #0e0e0e !important;
         color: #f1f1f1 !important;
     }
-
-    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #1a1a1a !important;
         color: #ffffff !important;
     }
-
-    /* Headings */
     h1, h2, h3, h4, h5, h6, label {
         color: #ffffff !important;
     }
-
-    /* Buttons */
     .stButton > button {
-        background-color: #444444 !important;
+        background-color: #444 !important;
         color: white !important;
         padding: 8px 18px !important;
         border-radius: 8px !important;
         border: none !important;
         font-weight: 600 !important;
     }
-
     .stButton > button:hover {
-        background-color: #666666 !important;
+        background-color: #666 !important;
     }
-
-    /* Input Fields */
     input, select, textarea {
         background-color: #222 !important;
         color: white !important;
         border-radius: 6px !important;
         border: 1px solid #444 !important;
-    }
-
-    /* Dataframe background */
-    .dataframe {
-        color: white !important;
     }
     """
     st.markdown(f"<style>{custom_css}</style>", unsafe_allow_html=True)
@@ -61,14 +46,13 @@ def load_css():
 load_css()
 
 # -----------------------------------------------------------
-# CLEANING FUNCTION (Fix CSV TotalCharges issues)
+# CLEANING FUNCTION
 # -----------------------------------------------------------
 
 def clean_dataframe(df):
     if "TotalCharges" in df.columns:
         df["TotalCharges"] = df["TotalCharges"].replace(" ", "0.0")
-        df["TotalCharges"] = df["TotalCharges"].fillna("0.0")
-        df["TotalCharges"] = df["TotalCharges"].astype(float)
+        df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce").fillna(0.0)
 
     if "MonthlyCharges" in df.columns:
         df["MonthlyCharges"] = pd.to_numeric(df["MonthlyCharges"], errors="coerce").fillna(0.0)
@@ -79,35 +63,48 @@ def clean_dataframe(df):
     return df
 
 # -----------------------------------------------------------
-# LOAD MODEL / ENCODERS
+# LOAD MODELS / ENCODERS (ML OR DL)
 # -----------------------------------------------------------
 
 st.sidebar.title("⚙️ Settings")
 
-uploaded_model = st.sidebar.file_uploader("Upload Model (.pk1)", type=["pk1", "pkl"])
-uploaded_encoders = st.sidebar.file_uploader("Upload Encoders (.pk1)", type=["pk1", "pkl"])
+uploaded_model = st.sidebar.file_uploader("Upload Model (.pk1/.pkl/.h5)", type=["pk1", "pkl", "h5"])
+uploaded_encoders = st.sidebar.file_uploader("Upload Encoders (.pk1/.pkl)", type=["pk1", "pkl"])
 
-def load_pickle(file):
-    return pickle.load(file)
+def load_any_model(file):
+    filename = file.name.lower()
+    if filename.endswith(".h5"):
+        return load_model(file), "DL"
+    else:
+        return pickle.load(file), "ML"
 
-model_data = None
+loaded_model = None
+model_type = None
 encoders = None
+feature_names = None
 
+# Try uploaded models first
 if uploaded_model and uploaded_encoders:
-    model_data = load_pickle(uploaded_model)
-    encoders = load_pickle(uploaded_encoders)
+    loaded_model, model_type = load_any_model(uploaded_model)
+    encoders = pickle.load(uploaded_encoders)
+
 else:
     try:
+        # Default ML model
         with open("customer_churn_model.pk1", "rb") as f:
             model_data = pickle.load(f)
+        loaded_model = model_data["model"]
+        feature_names = model_data["features_name"]
+        model_type = "ML"
+
         with open("encoders.pk1", "rb") as f:
             encoders = pickle.load(f)
-    except:
-        st.warning("⚠ Model/Encoders not found. Upload in sidebar.")
 
-if model_data:
-    loaded_model = model_data["model"]
-    feature_names = model_data["features_name"]
+    except:
+        st.warning("⚠ No default model/encoders found. Upload in sidebar.")
+
+if uploaded_model and model_type == "ML":
+    feature_names = loaded_model["features_name"] if isinstance(loaded_model, dict) else None
 
 # -----------------------------------------------------------
 # SIDEBAR NAVIGATION
@@ -117,6 +114,27 @@ page = st.sidebar.radio(
     "Navigation",
     ["🔮 Single Prediction", "📄 Batch Prediction (CSV)", "ℹ About"]
 )
+
+# -----------------------------------------------------------
+# UNIVERSAL PREDICTION HANDLER (ML + DL)
+# -----------------------------------------------------------
+
+def make_prediction(df):
+    """
+    Works with both:
+    - ML models (RandomForest, XGBoost)
+    - DL Keras models (.h5)
+    """
+
+    if model_type == "DL":
+        prob = float(loaded_model.predict(df)[0][0])
+        pred = 1 if prob >= 0.5 else 0
+        return pred, prob
+
+    else:  # ML model
+        pred = loaded_model.predict(df)[0]
+        prob = loaded_model.predict_proba(df)[0][1]
+        return pred, prob
 
 # -----------------------------------------------------------
 # 🔮 SINGLE PREDICTION
@@ -158,7 +176,7 @@ if page == "🔮 Single Prediction":
     TotalCharges = st.number_input("Total Charges", 0.0, 10000.0)
 
     if st.button("Predict"):
-        if not model_data or not encoders:
+        if not loaded_model or not encoders:
             st.error("Model/Encoders missing.")
         else:
             row = {
@@ -180,10 +198,10 @@ if page == "🔮 Single Prediction":
             for col, encoder in encoders.items():
                 df[col] = encoder.transform(df[col].astype(str))
 
-            df = df[feature_names]
+            if model_type == "ML":
+                df = df[feature_names]
 
-            pred = loaded_model.predict(df)[0]
-            prob = loaded_model.predict_proba(df)[0][1]
+            pred, prob = make_prediction(df)
 
             st.success(f"Prediction: {'Churn' if pred == 1 else 'No Churn'}")
             st.info(f"Probability: {prob:.4f}")
@@ -210,10 +228,16 @@ elif page == "📄 Batch Prediction (CSV)":
                 if col in df_clean.columns:
                     df_clean[col] = encoder.transform(df_clean[col].astype(str))
 
-            df_clean = df_clean[feature_names]
+            if model_type == "ML":
+                df_clean = df_clean[feature_names]
 
-            preds = loaded_model.predict(df_clean)
-            probs = loaded_model.predict_proba(df_clean)[:, 1]
+            preds = []
+            probs = []
+
+            for i in range(len(df_clean)):
+                pred, prob = make_prediction(df_clean.iloc[i:i+1])
+                preds.append(pred)
+                probs.append(prob)
 
             df["Churn_Pred"] = preds
             df["Churn_Prob"] = probs
@@ -235,13 +259,20 @@ elif page == "📄 Batch Prediction (CSV)":
 else:
     st.header("ℹ About This App")
     st.write("""
-    This ML app predicts customer churn using a trained Random Forest model.
+    This app predicts telecom customer churn using either:
+
+    **Machine Learning models**
+    - Random Forest  
+    - XGBoost  
+    - Logistic Regression  
+
+    **Deep Learning models**
+    - TensorFlow/Keras (.h5)
 
     Features:
-    - Single Prediction  
-    - Batch CSV Prediction  
-    - Upload your own model  
-    - Customizable CSS  
-    - Dark Mode UI  
+    ✔ Single Prediction  
+    ✔ Batch CSV Prediction  
+    ✔ Upload custom ML/DL model  
+    ✔ Automatic Encoding  
+    ✔ Dark UI Theme  
     """)
-
