@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import tempfile
 from tensorflow.keras.models import load_model
 
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
@@ -63,7 +64,7 @@ def clean_dataframe(df):
     return df
 
 # -----------------------------------------------------------
-# LOAD MODELS / ENCODERS (ML OR DL)
+# LOAD MODELS / ENCODERS (ML OR DL) — FIXED VERSION
 # -----------------------------------------------------------
 
 st.sidebar.title("⚙️ Settings")
@@ -73,26 +74,36 @@ uploaded_encoders = st.sidebar.file_uploader("Upload Encoders (.pk1/.pkl)", type
 
 def load_any_model(file):
     filename = file.name.lower()
+
+    # DL model (.h5)
     if filename.endswith(".h5"):
-        return load_model(file), "DL"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
+            tmp.write(file.read())
+            tmp_path = tmp.name
+        model = load_model(tmp_path)
+        return model, "DL"
+
+    # ML model (pickle)
     else:
         return pickle.load(file), "ML"
+
 
 loaded_model = None
 model_type = None
 encoders = None
 feature_names = None
 
-# Try uploaded models first
+# Prefer uploaded files
 if uploaded_model and uploaded_encoders:
     loaded_model, model_type = load_any_model(uploaded_model)
     encoders = pickle.load(uploaded_encoders)
 
 else:
     try:
-        # Default ML model
+        # Load default ML model from repo
         with open("customer_churn_model.pk1", "rb") as f:
             model_data = pickle.load(f)
+
         loaded_model = model_data["model"]
         feature_names = model_data["features_name"]
         model_type = "ML"
@@ -101,10 +112,7 @@ else:
             encoders = pickle.load(f)
 
     except:
-        st.warning("⚠ No default model/encoders found. Upload in sidebar.")
-
-if uploaded_model and model_type == "ML":
-    feature_names = loaded_model["features_name"] if isinstance(loaded_model, dict) else None
+        st.warning("⚠ No default model/encoders found. Upload both in the sidebar to proceed.")
 
 # -----------------------------------------------------------
 # SIDEBAR NAVIGATION
@@ -120,18 +128,12 @@ page = st.sidebar.radio(
 # -----------------------------------------------------------
 
 def make_prediction(df):
-    """
-    Works with both:
-    - ML models (RandomForest, XGBoost)
-    - DL Keras models (.h5)
-    """
-
     if model_type == "DL":
         prob = float(loaded_model.predict(df)[0][0])
         pred = 1 if prob >= 0.5 else 0
         return pred, prob
 
-    else:  # ML model
+    else:
         pred = loaded_model.predict(df)[0]
         prob = loaded_model.predict_proba(df)[0][1]
         return pred, prob
@@ -177,7 +179,7 @@ if page == "🔮 Single Prediction":
 
     if st.button("Predict"):
         if not loaded_model or not encoders:
-            st.error("Model/Encoders missing.")
+            st.error("Model & Encoders must be uploaded.")
         else:
             row = {
                 'gender': gender, 'SeniorCitizen': SeniorCitizen,
@@ -264,7 +266,6 @@ else:
     **Machine Learning models**
     - Random Forest  
     - XGBoost  
-    - Logistic Regression  
 
     **Deep Learning models**
     - TensorFlow/Keras (.h5)
