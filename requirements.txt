@@ -3,5 +3,4 @@ pandas
 numpy
 scikit-learn
 imbalanced-learn
-xgboost
-tensorflow   # for DL support
+tensorflow-cpu
