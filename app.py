@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import tempfile
 from tensorflow.keras.models import load_model
+import os
 
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
@@ -47,7 +48,7 @@ def load_css():
 load_css()
 
 # -----------------------------------------------------------
-# CLEANING FUNCTION (same logic as training)
+# CLEANING FUNCTION
 # -----------------------------------------------------------
 
 def clean_dataframe(df):
@@ -69,31 +70,33 @@ def clean_dataframe(df):
 
 st.sidebar.title("⚙️ Settings")
 
-# Optionally upload a different DL model (.h5)
 uploaded_model = st.sidebar.file_uploader("Upload Alternate DL Model (.h5)", type=["h5"])
 
-# Load encoders & feature list from repo (fixed)
+# Load DL encoders
 try:
-    with open("encoders.pk1", "rb") as f:
+    with open("dl_encoders.pk1", "rb") as f:
         encoders = pickle.load(f)
     with open("dl_features.pk1", "rb") as f:
         dl_features = pickle.load(f)
 except Exception as e:
-    st.error("❌ Failed to load encoders or feature list from repo.")
+    st.error("❌ Failed to load DL encoders or dl_features.pk1 from repo.")
     st.stop()
 
-# Load default DL model
+# Load default model
 def load_default_model():
     try:
-        model = load_model("dl_churn_model.h5")
-        return model
+        if os.path.exists("dl_churn_model.h5"):
+            return load_model("dl_churn_model.h5")
+        else:
+            st.error("❌ dl_churn_model.h5 not found in repository root!")
+            st.stop()
     except Exception as e:
-        st.error("❌ Failed to load default DL model from repo.")
+        st.error("❌ Error loading default DL model.")
         st.stop()
 
 loaded_model = load_default_model()
 
-# If user uploads an alternate DL model, override the default
+# If user uploads an alternate DL model
 if uploaded_model is not None:
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
@@ -114,16 +117,10 @@ page = st.sidebar.radio(
 )
 
 # -----------------------------------------------------------
-# UNIVERSAL PREDICTION FUNCTION (DL ONLY)
+# DL PREDICTION FUNCTION
 # -----------------------------------------------------------
 
 def make_prediction(df):
-    """
-    df must already be:
-    - cleaned
-    - encoded
-    - reindexed to dl_features
-    """
     preds = loaded_model.predict(df)
     prob = float(preds[0][0])
     pred_class = 1 if prob >= 0.5 else 0
@@ -156,8 +153,8 @@ if page == "🔮 Single Prediction":
     with col3:
         DeviceProtection = st.selectbox("Device Protection", ["Yes", "No", "No internet service"])
         TechSupport = st.selectbox("Tech Support", ["Yes", "No", "No internet service"])
-        StreamingTV = st.selectbox("Streaming TV", ["Yes", "No", "No internet service"])
-        StreamingMovies = st.selectbox("Streaming Movies", ["Yes", "No", "No internet service"])
+        StreamingTV = st.selectbox("StreamingTV", ["Yes", "No", "No internet service"])
+        StreamingMovies = st.selectbox("StreamingMovies", ["Yes", "No", "No internet service"])
         Contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
         PaperlessBilling = st.selectbox("Paperless Billing", ["Yes", "No"])
         PaymentMethod = st.selectbox("Payment Method", [
@@ -192,23 +189,20 @@ if page == "🔮 Single Prediction":
         }
 
         df = pd.DataFrame([row])
-
-        # Clean numeric-type issues
         df = clean_dataframe(df)
 
-        # Apply encoders to categorical columns
+        # Apply label encoders
         for col, encoder in encoders.items():
             if col in df.columns:
                 df[col] = encoder.transform(df[col].astype(str))
 
-        # Ensure all features exist and are in correct order
+        # Ensure all DL features exist
         for col in dl_features:
             if col not in df.columns:
-                df[col] = 0  # safe default for missing columns
+                df[col] = 0  # default
 
         df = df[dl_features]
 
-        # Make prediction
         pred, prob = make_prediction(df)
 
         st.success(f"Prediction: {'Churn' if pred == 1 else 'No Churn'}")
@@ -220,15 +214,14 @@ if page == "🔮 Single Prediction":
 
 elif page == "📄 Batch Prediction (CSV)":
 
-    st.header("📄 Batch Churn Prediction (CSV) - Deep Learning Model")
+    st.header("📄 Batch Churn Prediction (Deep Learning Model)")
 
     uploaded_csv = st.file_uploader("Upload CSV File", type=["csv"])
 
     if uploaded_csv is not None:
         df = pd.read_csv(uploaded_csv)
-        st.write("Preview of uploaded data:", df.head())
+        st.write("Preview:", df.head())
 
-        # Drop customerID if present, to be safe
         if "customerID" in df.columns:
             df = df.drop("customerID", axis=1)
 
@@ -236,20 +229,16 @@ elif page == "📄 Batch Prediction (CSV)":
 
             df_clean = clean_dataframe(df.copy())
 
-            # Apply encoders where applicable
             for col, encoder in encoders.items():
                 if col in df_clean.columns:
                     df_clean[col] = encoder.transform(df_clean[col].astype(str))
 
-            # Ensure all DL features exist (add any missing as 0)
             for col in dl_features:
                 if col not in df_clean.columns:
                     df_clean[col] = 0
 
-            # Reorder columns
             df_clean = df_clean[dl_features]
 
-            # Predict in batch
             preds_raw = loaded_model.predict(df_clean)
             probs = preds_raw.flatten()
             preds = (probs >= 0.5).astype(int)
@@ -257,11 +246,11 @@ elif page == "📄 Batch Prediction (CSV)":
             df["Churn_Pred"] = preds
             df["Churn_Prob"] = probs
 
-            st.success("✅ Batch prediction completed!")
+            st.success("Batch prediction completed!")
             st.dataframe(df)
 
             st.download_button(
-                "Download Results as CSV",
+                "Download Results",
                 df.to_csv(index=False).encode("utf-8"),
                 "churn_predictions_dl.csv",
                 "text/csv"
@@ -274,16 +263,13 @@ elif page == "📄 Batch Prediction (CSV)":
 else:
     st.header("ℹ About This App")
     st.write("""
-    This app predicts telecom customer churn using a **Deep Learning model** trained on the Telco Customer Churn dataset.
+    This app predicts telecom customer churn using a **Deep Learning model** trained on the Telco Customer dataset.
 
-    **Key details:**
-    - `customerID` is removed from training and prediction
-    - Categorical features are LabelEncoded using the same encoders as training
-    - SMOTE is used to handle class imbalance
-    - Default DL model is loaded from the GitHub repo
-    - You can optionally upload a different `.h5` DL model (same feature schema)
+    ✔ customerID removed  
+    ✔ Label encoders applied  
+    ✔ SMOTE used  
+    ✔ Feature order fixed  
+    ✔ Default DL model loaded from GitHub  
+    ✔ Optional upload of alternate .h5 DL model  
 
-    Pages:
-    - 🔮 Single Prediction: Manually enter customer details
-    - 📄 Batch Prediction: Upload a CSV for multiple customers
     """)
